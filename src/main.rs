@@ -7,6 +7,36 @@ enum Reversible {
     RevFloat(f32),
 }
 */
+
+
+enum RevStmnt {
+    PlusEq(RevExpr, RevExpr),
+    MinusEq(RevExpr, RevExpr),
+    MultEq(RevExpr, RevExpr),
+    DivEq(RevExpr, RevExpr),
+    IfStmnt(RevExpr, Box<RevStmnt>, Box<RevStmnt>, RevExpr),
+    FromStmnt(RevExpr, Box<RevStmnt>, RevExpr),
+    Stmnts(Box<[RevStmnt]>),
+    Call(String),
+    Uncall(String),
+    CallBack(Box<Fn(RevType) -> ()>),
+}
+
+
+enum RevExpr {
+    Lit(RevType),
+    Var(String),
+    Plus(Box<RevExpr>, Box<RevExpr>),
+    Minus(Box<RevExpr>, Box<RevExpr>),
+    Mult(Box<RevExpr>, Box<RevExpr>),
+    Div(Box<RevExpr>, Box<RevExpr>),
+    Equal(Box<RevExpr>, Box<RevExpr>),
+    Geq(Box<RevExpr>, Box<RevExpr>),
+}
+
+
+
+
 use std::fmt;
 
 trait RevExt {
@@ -19,6 +49,11 @@ trait RevExt {
     fn mult_reverse_lhs(&self, &RevType) -> RevType;
     fn div_reverse_rhs(&self, &RevType) -> RevType;
     fn div_reverse_lhs(&self, &RevType) -> RevType;
+    fn geq_rhs(&self, &RevType) -> RevType;
+    fn geq_lhs(&self, &RevType) -> RevType;
+    fn eq_rhs(&self, &RevType) -> RevType;
+    fn eq_lhs(&self, &RevType) -> RevType;
+    fn not(&self) -> RevType;
     fn is_empty(&self) -> bool;
 }
 
@@ -148,22 +183,61 @@ impl RevType {
         }
     }
 
-    fn destroy(var: &RevType) -> RevType{
-        match var {
-            Revi64(var_i) => {
-                assert_eq!(*var_i, 0);
-                Empty
+    fn geq(rhs: &RevType, lhs: &RevType) -> RevType {
+        match rhs {
+            Revi64(rhs_i) => {
+                match lhs {
+                    Revi64(lhs_i) => Revbool(rhs_i >= lhs_i),
+                    RevExtension(lhs_ext) => lhs_ext.geq_lhs(rhs),
+                    _ => unreachable!(),
+                }
             },
-            Revf64(var_f) => {
-                assert_eq!(*var_f, 0.0);
-                Empty
+            Revf64(rhs_f) => {
+                match lhs {
+                    Revf64(lhs_f) => Revbool(rhs_f >= lhs_f),
+                    RevExtension(lhs_ext) => lhs_ext.geq_lhs(rhs),
+                    _ => unreachable!(),
+                }
             },
-            RevExtension(var_ext) => {
-                assert!(var_ext.is_empty());
-                Empty
-            },
+            RevExtension(rhs_ext) => rhs_ext.geq_rhs(lhs),
             _ => unreachable!(),
         }
+    }
+
+    fn eq(rhs: &RevType, lhs: &RevType) -> RevType {
+        match rhs {
+            Revi64(rhs_i) => {
+                match lhs {
+                    Revi64(lhs_i) => Revbool(rhs_i == lhs_i),
+                    RevExtension(lhs_ext) => lhs_ext.eq_lhs(rhs),
+                    _ => unreachable!(),
+                }
+            },
+            Revf64(rhs_f) => {
+                match lhs {
+                    Revf64(lhs_f) => Revbool(rhs_f == lhs_f),
+                    RevExtension(lhs_ext) => lhs_ext.eq_lhs(rhs),
+                    _ => unreachable!(),
+                }
+            },
+            RevExtension(rhs_ext) => rhs_ext.eq_rhs(lhs),
+            _ => unreachable!(),
+        }
+    }
+
+    fn not(var: &RevType) -> RevType {
+        match var {
+            Revbool(b) => Revbool(!b),
+            RevExtension(ext) => ext.not(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn destroy(var: &RevType) -> RevType {
+        if !RevType::is_empty(var) {
+            unreachable!();
+        }
+        Empty
     }
 
     fn is_empty(var: &RevType) -> bool {
@@ -177,11 +251,31 @@ impl RevType {
 
 }
 
+fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Plus(Box::new(rhs), Box::new(lhs))
+}
+
+fn int(x: i64) -> RevExpr {
+    Lit(RevType::Revi64(x))
+}
+
+fn var(x: &str) -> RevExpr {
+    Var(x.to_string())
+}
 
 
 use std::collections::HashMap;
+use RevExpr::*;
+use RevStmnt::*;
 
 fn main() {
+
+    let procedure = 
+    
+                Stmnts(Box::new([
+                    PlusEq(var("x"), int(15)),
+                    PlusEq(var("y"), plus(plus(int(15), int(15)), int(20))),
+                ]));
     
     let mut store = HashMap::new();
     
@@ -205,7 +299,7 @@ fn main() {
         let x_var = store.get("x").unwrap();
         let y_var = store.get("y").unwrap();
 
-        res = RevType::rev_add(x_var, y_var);
+        res = RevType::not(&RevType::geq(x_var, y_var));
     }
     //store.insert("x", res);
 
