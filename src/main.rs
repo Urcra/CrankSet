@@ -8,9 +8,15 @@ enum Reversible {
 }
 */
 
+/*
+#[derive(Clone)]
+enum RevStmntTest {
+    CallBack(Box<Fn(&RevType) -> ()>),
+}
+*/
 
 
-
+//#[derive(Clone)]
 enum RevStmnt {
     PlusEq(RevExpr, RevExpr),
     MinusEq(RevExpr, RevExpr),
@@ -26,7 +32,7 @@ enum RevStmnt {
 }
 
 
-
+#[derive(Clone)]
 enum RevExpr {
     Lit(RevType),
     Var(String),
@@ -40,7 +46,7 @@ enum RevExpr {
 
 
 
-
+use std::any::Any;
 use std::fmt;
 
 trait RevExt {
@@ -61,6 +67,109 @@ trait RevExt {
     fn not(&self) -> RevType;
     fn is_empty(&self) -> bool;
     fn is_true(&self) -> bool;
+    fn as_any(&self) -> &Any;
+    fn testi(&self, Box<RevExt>) -> RevType;
+}
+
+
+struct Testi {
+    tag: u32,
+}
+
+fn extension_downcast<T>(r: &RevType) -> &T where T: 'static{
+    let t = match r {
+            RevExtension(x) => x,
+            _ => unimplemented!()
+    };
+
+    match t.as_any().downcast_ref::<T>() {
+            Some(b) => b,
+            None    => panic!("Invalid downcast")
+    }
+}
+
+fn safe_extension_downcast<T>(r: &RevType) -> Option<&T> where T: 'static{
+    let t = match r {
+            RevExtension(x) => x,
+            _ => return None,
+    };
+
+    t.as_any().downcast_ref::<T>()
+}
+
+impl RevExt for Testi {
+   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        println!("{:?}", self.tag);
+        unimplemented!()
+    }
+    fn clone(&self) -> Self where Self: Sized {
+        unimplemented!()
+    }
+    fn add_reverse_rhs(&self, r: &RevType) -> RevType {
+        /*
+        let t = match r {
+            RevExtension(x) => x,
+            _ => unimplemented!()
+        };
+        
+        let b: &Testi = match t.as_any().downcast_ref::<Testi>() {
+            Some(b) => b,
+            None    => panic!("&a isn't a B!")
+        };
+        */
+        let b: &Testi = extension_downcast::<Testi>(r);
+
+        RevExtension(Box::new(Testi { tag: b.tag + self.tag}))
+    }
+    fn add_reverse_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn sub_reverse_rhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn sub_reverse_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn mult_reverse_rhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn mult_reverse_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn div_reverse_rhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn div_reverse_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn geq_rhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn geq_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn eq_rhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn eq_lhs(&self, r: &RevType) -> RevType {
+        unimplemented!()
+    }
+    fn not(&self) -> RevType {
+        unimplemented!()
+    }
+    fn is_empty(&self) -> bool {
+        unimplemented!()
+    }
+    fn is_true(&self) -> bool {
+        unimplemented!()
+    }
+    fn as_any(&self) -> &Any {
+        self
+    }
+    fn testi(&self, other: Box<RevExt>) -> RevType{
+        unimplemented!()
+    }
+
 }
 
 
@@ -318,6 +427,7 @@ impl ProcHandler {
     fn get_proc(&self, p: &String) -> &RevStmnt {
         self.procs.get(p).unwrap()
     }
+
 }
 
 struct StoreHandler {
@@ -334,6 +444,24 @@ impl StoreHandler {
 
     fn run_proc(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
         self.run_statement(stmnt, prochandler)
+    }
+
+    fn run_rev_proc(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
+        self.run_rev_statement(stmnt, prochandler)
+    }
+
+    fn run_rev_statement(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
+        match stmnt {
+            PlusEq(rhs, lhs) => self.minus_eq(rhs, lhs),
+            MinusEq(rhs, lhs) => self.plus_eq(rhs, lhs),
+            Swap(rhs, lhs) => self.swap(rhs, lhs),
+            Call(s) => self.uncall_stmnt(s, prochandler),
+            Stmnts(ss) => self.rev_many_stmnts(ss, prochandler),
+            FromStmnt(precond, ss, postcond) => self.rev_from_stmnt(precond, ss, postcond, prochandler),
+            IfStmnt(precond, ss1, ss2, postcond) => self.rev_if_stmnt(precond, ss1, ss2, postcond, prochandler),
+            CallBack(func, expr) => self.callback_stmnt(func, expr),
+            _ => unreachable!(),
+        }
     }
 
     fn run_statement(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
@@ -369,6 +497,20 @@ impl StoreHandler {
         }
     }
 
+    fn rev_if_stmnt(&mut self, precond: &RevExpr, ss1: &RevStmnt, ss2: &RevStmnt, postcond: &RevExpr, prochandler: &ProcHandler) {
+        let post_res = self.calc_expr(postcond);
+
+        if post_res.is_true() {
+            self.run_rev_statement(ss1, prochandler);
+            let pre_res = self.calc_expr(precond);
+            assert!(pre_res.is_true());
+        } else {
+            self.run_rev_statement(ss2, prochandler);
+            let pre_res = self.calc_expr(precond);
+            assert!(!pre_res.is_true());
+        }
+    }
+
     fn from_stmnt(&mut self, precond: &RevExpr, ss: &RevStmnt, postcond: &RevExpr, prochandler: &ProcHandler) {
         let pre_res = self.calc_expr(precond);
         assert!(pre_res.is_true());
@@ -381,15 +523,38 @@ impl StoreHandler {
         }{}
     }
 
+    fn rev_from_stmnt(&mut self, precond: &RevExpr, ss: &RevStmnt, postcond: &RevExpr, prochandler: &ProcHandler) {
+        let post_res = self.calc_expr(postcond);
+        assert!(post_res.is_true());
+
+        // Black magic do while loop
+        while {
+            self.run_rev_statement(ss, prochandler);
+            let exit_res = self.calc_expr(precond);
+            !exit_res.is_true()
+        }{}
+    }
+
 
     fn call_stmnt(&mut self, p: &String, prochandler: &ProcHandler) {
         let new_procedure = prochandler.get_proc(p);
         self.run_proc(new_procedure, prochandler);
     }
 
+    fn uncall_stmnt(&mut self, p: &String, prochandler: &ProcHandler) {
+        let new_procedure = prochandler.get_proc(p);
+        self.run_rev_proc(new_procedure, prochandler);
+    }
+
     fn many_stmnts(&mut self, ss_box: &Box<[RevStmnt]>, prochandler: &ProcHandler){
         for s in ss_box.iter() {
             self.run_statement(s, prochandler);
+        }
+    }
+
+    fn rev_many_stmnts(&mut self, ss_box: &Box<[RevStmnt]>, prochandler: &ProcHandler){
+        for s in ss_box.iter().rev() {
+            self.run_rev_statement(s, prochandler);
         }
     }
 
@@ -473,6 +638,10 @@ impl StoreHandler {
         }
         v
     }
+
+    fn get_store_2(&self) -> &HashMap<String, RevType>{
+        &self.store
+    }
 }
 
 struct RPU {
@@ -500,6 +669,12 @@ impl RPU {
         self.storehandler.run_proc(proc_to_run, &self.prochandler);
     }
 
+    fn uncall_proc(&mut self, p: &String) {
+    
+        let proc_to_run = self.prochandler.get_proc(p);
+        self.storehandler.run_rev_proc(proc_to_run, &self.prochandler);
+    }
+
     fn load_proc(&mut self, pname: String, ss: RevStmnt) {
         self.prochandler.procs.insert(pname, ss);
     }
@@ -513,16 +688,16 @@ impl RPU {
     fn get_store(&self) -> Vec<(&String, &RevType)> {
         self.storehandler.get_store()
     }
+
+    fn get_store_2(&self) -> &HashMap<String, RevType> {
+        self.storehandler.get_store_2()
+    }
 }
 
 
 use RevExpr::*;
 use RevStmnt::*;
 
-/*
-fn callback_test(x: &RevType) {
-    println!("{:?}", x);
-}*/
 
 
 fn main() {
@@ -540,6 +715,11 @@ fn main() {
     let callback_test = |x: &RevType| {
         println!("{:?}", x);
     };
+
+    //let test_2 = callback_test.clone();
+
+    let q: Box<RevExt> = Box::new(Testi {tag: 2});
+    
 
     let a = Revi64(5);
     let b = Revi64(10);
@@ -592,13 +772,19 @@ fn main() {
     //rpu.create_var("x".to_string(), Revi64(2));
     //rpu.call_proc(&"more".to_string());
 
-    rpu.create_var("ts".to_string(), Revi64(0));
-    rpu.create_var("v".to_string(), Revi64(0));
-    rpu.create_var("h".to_string(), Revi64(176));
-    rpu.create_var("te".to_string(), Revi64(3));
+    //rpu.create_var("ts".to_string(), Revi64(0));
+    //rpu.create_var("v".to_string(), Revi64(0));
+    //rpu.create_var("h".to_string(), Revi64(176));
+    //rpu.create_var("te".to_string(), Revi64(3));
 
-    rpu.call_proc(&"freefall".to_string());
+    //rpu.call_proc(&"freefall".to_string());
+    //rpu.uncall_proc(&"freefall".to_string());
     
+    //let addtox = Stmnts(Box::new([PlusEq(var("x"), int(1))]));
+    //rpu.load_proc("addtox".to_string(), addtox);
+    //rpu.create_var("x".to_string(), Revi64(0));
+    //rpu.call_proc(&"addtox".to_string());
+    //rpu.uncall_proc(&"addtox".to_string());
 
     let fib = IfStmnt(equal(var("n"), int(0)),
             Box::new(Stmnts(Box::new([PlusEq(var("x1"), int(1)), PlusEq(var("x2"), int(1))]))),
@@ -606,14 +792,24 @@ fn main() {
             equal(var("x1"), var("x2")));
     
     rpu.load_proc("fib".to_string(), fib);
-    //rpu.create_var("n".to_string(), Revi64(4));
-    //rpu.create_var("x1".to_string(), Revi64(0));
-    //rpu.create_var("x2".to_string(), Revi64(0));
+    rpu.create_var("n".to_string(), Revi64(0));
+    rpu.create_var("x1".to_string(), Revi64(5));
+    rpu.create_var("x2".to_string(), Revi64(8));
 
-    //rpu.call_proc(&"fib".to_string());
+    rpu.uncall_proc(&"fib".to_string());
 
-    let finalstore = rpu.get_store();
+    {
+        let finalstore = rpu.get_store_2();
+        println!("Hello, world!, {:?}", finalstore);
+    }
 
-    println!("Hello, world!, {:?}", finalstore);
+    rpu.call_proc(&"fib".to_string());
+
+    {
+        let finalstore = rpu.get_store_2();
+        println!("Hello, world!, {:?}", finalstore);
+    }
+
+
 
 }
