@@ -59,6 +59,7 @@ trait RevExt {
     fn eq_lhs(&self, &RevType) -> RevType;
     fn not(&self) -> RevType;
     fn is_empty(&self) -> bool;
+    fn is_true(&self) -> bool;
 }
 
 
@@ -267,6 +268,14 @@ impl RevType {
         }
     }
 
+    fn is_true(&self) -> bool {
+        match self {
+            Revbool(b) => b.clone(),
+            RevExtension(ext) => ext.is_true(),
+            _ => unreachable!(),
+        }
+    }
+
 }
 
 fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
@@ -329,11 +338,26 @@ impl StoreHandler {
     fn run_statement(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
         match stmnt {
             PlusEq(rhs, lhs) => self.plus_eq(rhs, lhs),
+            MinusEq(rhs, lhs) => self.minus_eq(rhs, lhs),
             Call(s) => self.call_stmnt(s, prochandler),
             Stmnts(ss) => self.many_stmnts(ss, prochandler),
+            FromStmnt(precond, ss, postcond) => self.from_stmnt(precond, ss, postcond, prochandler),
             _ => unreachable!(),
         }
     }
+
+    fn from_stmnt(&mut self, precond: &RevExpr, ss: &RevStmnt, postcond: &RevExpr, prochandler: &ProcHandler) {
+        let pre_res = self.calc_expr(precond);
+        assert!(pre_res.is_true());
+
+        // Black magic do while loop
+        while {
+            self.run_statement(ss, prochandler);
+            let exit_res = self.calc_expr(postcond);
+            !exit_res.is_true()
+        }{}
+    }
+
 
     fn call_stmnt(&mut self, p: &String, prochandler: &ProcHandler) {
         let new_procedure = prochandler.get_proc(p);
@@ -353,10 +377,18 @@ impl StoreHandler {
     fn calc_expr(&self, expr: &RevExpr) -> RevType {
         match expr {
             Plus(expr1, expr2)  => self.plus(expr1, expr2),
+            Minus(expr1, expr2)  => self.minus(expr1, expr2),
+            Equal(expr1, expr2)  => self.equal(expr1, expr2),
             Lit(lit)            => lit.clone(),
             Var(var)            => self.get_var(var).clone(),
             _ => unreachable!(),
         }
+    }
+
+    fn equal(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
+        let rhs_val = self.calc_expr(rhs);
+        let lhs_val = self.calc_expr(lhs);
+        RevType::eq(&rhs_val, &lhs_val)
     }
 
     fn plus(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
@@ -365,12 +397,27 @@ impl StoreHandler {
         RevType::rev_add(&rhs_val, &lhs_val)
     }
 
+    fn minus(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
+        let rhs_val = self.calc_expr(rhs);
+        let lhs_val = self.calc_expr(lhs);
+        RevType::rev_sub(&rhs_val, &lhs_val)
+    }
+
     fn plus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
         let var = match rhs {
             Var(s) => s,
             _ => unreachable!(),
         };
         let res = self.plus(rhs, lhs);
+        *self.store.get_mut(var).unwrap() = res;
+    }
+
+    fn minus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
+        let var = match rhs {
+            Var(s) => s,
+            _ => unreachable!(),
+        };
+        let res = self.minus(rhs, lhs);
         *self.store.get_mut(var).unwrap() = res;
     }
 
@@ -528,9 +575,17 @@ fn main() {
             MinusEq(var("h"), minus(var("v"), int(5)))]))),
         equal(var("ts"), var("te")));
 
-    rpu.create_var("x".to_string(), Revi64(2));
-    rpu.call_proc(&"more".to_string());
+    rpu.load_proc("freefall".to_string(), freefall);
 
+    //rpu.create_var("x".to_string(), Revi64(2));
+    //rpu.call_proc(&"more".to_string());
+
+    rpu.create_var("ts".to_string(), Revi64(0));
+    rpu.create_var("v".to_string(), Revi64(0));
+    rpu.create_var("h".to_string(), Revi64(176));
+    rpu.create_var("te".to_string(), Revi64(3));
+
+    rpu.call_proc(&"freefall".to_string());
     let finalstore = rpu.get_store();
     println!("Hello, world!, {:?}", finalstore);
 
