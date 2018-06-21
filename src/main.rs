@@ -388,25 +388,6 @@ impl RevType {
 
 }
 
-fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
-    Plus(Box::new(rhs), Box::new(lhs))
-}
-
-fn minus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
-    Minus(Box::new(rhs), Box::new(lhs))
-}
-
-fn equal(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
-    Equal(Box::new(rhs), Box::new(lhs))
-}
-
-fn int(x: i64) -> RevExpr {
-    Lit(RevType::Revi64(x))
-}
-
-fn var(x: &str) -> RevExpr {
-    Var(x.to_string())
-}
 
 
 use std::collections::HashMap;
@@ -695,12 +676,68 @@ impl RPU {
 }
 
 
+fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Plus(Box::new(rhs), Box::new(lhs))
+}
+
+fn minus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Minus(Box::new(rhs), Box::new(lhs))
+}
+
+fn equal(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Equal(Box::new(rhs), Box::new(lhs))
+}
+
+fn int(x: i64) -> RevExpr {
+    Lit(RevType::Revi64(x))
+}
+
+fn var(x: &str) -> RevExpr {
+    Var(x.to_string())
+}
+/*
+fn stmnts(stmnts: &[RevStmnt]) -> RevStmnt {
+    Stmnts(Box::new(*stmnts))
+}*/
+
+
+#[macro_export]
+macro_rules! stmnts {
+    (First($a:expr), $( Item($x:expr) ),* , Last($c:expr)) => {
+        {
+            Box::new(
+            [
+            $(
+                $x,
+            )*
+            ])
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! var {
+    ($a:ident) => {
+        {
+            Var(stringify!($a).to_string())
+        }
+    };
+}
+
+
 use RevExpr::*;
 use RevStmnt::*;
 
 
 
 fn main() {
+
+    let testitest = stmnts![First(1),Item(2),Last(3)];
+    println!("{:?}", testitest);
+    let testitest2 = [1,2,3,];
+
+    let chartest = var!(b);
+    println!("{:?}", chartest);
 
     let procedure = 
     
