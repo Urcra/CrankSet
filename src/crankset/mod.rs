@@ -1,8 +1,10 @@
-mod types;
-mod lang;
+pub mod types;
+pub mod lang;
 mod procs;
 mod store;
-mod utils;
+
+#[macro_use]
+pub mod utils;
 
 
 use crankset::types::RevType;
@@ -21,7 +23,7 @@ pub struct RPU {
 
 impl RPU {
 
-    fn new() -> RPU {
+    pub fn new() -> RPU {
         RPU {
             procs: HashMap::new(),
             store: HashMap::new(),
@@ -30,32 +32,32 @@ impl RPU {
         }
     }
 
-    fn call_proc(&mut self, p: &String) {
+    pub fn call_proc(&mut self, p: &String) {
     
         let proc_to_run = self.prochandler.get_proc(p);
         self.storehandler.run_proc(proc_to_run, &self.prochandler);
     }
 
-    fn uncall_proc(&mut self, p: &String) {
+    pub fn uncall_proc(&mut self, p: &String) {
     
         let proc_to_run = self.prochandler.get_proc(p);
         self.storehandler.run_rev_proc(proc_to_run, &self.prochandler);
     }
 
-    fn load_proc(&mut self, pname: String, ss: RevStmnt) {
+    pub fn load_proc(&mut self, pname: String, ss: RevStmnt) {
         self.prochandler.load_proc(pname, ss);
     }
     
 
-    fn create_var(&mut self, vname: String, val: RevType) {
+    pub fn create_var(&mut self, vname: String, val: RevType) {
         self.storehandler.create_var(vname, val);
     }
 
-    fn get_store(&self) -> Vec<(&String, &RevType)> {
+    pub fn get_store(&self) -> Vec<(&String, &RevType)> {
         self.storehandler.get_store()
     }
 
-    fn get_store_2(&self) -> &HashMap<String, RevType> {
+    pub fn get_store_2(&self) -> &HashMap<String, RevType> {
         self.storehandler.get_store_2()
     }
 }

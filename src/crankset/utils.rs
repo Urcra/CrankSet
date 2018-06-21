@@ -1,6 +1,7 @@
 use crankset::lang::RevExpr::*;
 use crankset::lang::RevExpr;
 use crankset::types::RevType::*;
+use crankset::types::RevType;
 
 pub fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
     Plus(Box::new(rhs), Box::new(lhs))
@@ -73,4 +74,26 @@ macro_rules! IF {
             )
         }
     };
+}
+
+
+pub fn extension_downcast<T>(r: &RevType) -> &T where T: 'static{
+    let t = match r {
+            RevExtension(x) => x,
+            _ => unimplemented!()
+    };
+
+    match t.as_any().downcast_ref::<T>() {
+            Some(b) => b,
+            None    => panic!("Invalid downcast")
+    }
+}
+
+pub fn safe_extension_downcast<T>(r: &RevType) -> Option<&T> where T: 'static{
+    let t = match r {
+            RevExtension(x) => x,
+            _ => return None,
+    };
+
+    t.as_any().downcast_ref::<T>()
 }

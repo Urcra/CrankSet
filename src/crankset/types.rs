@@ -241,24 +241,3 @@ impl RevType {
 }
 
 
-// Maybe move to a util
-pub fn extension_downcast<T>(r: &RevType) -> &T where T: 'static{
-    let t = match r {
-            RevExtension(x) => x,
-            _ => unimplemented!()
-    };
-
-    match t.as_any().downcast_ref::<T>() {
-            Some(b) => b,
-            None    => panic!("Invalid downcast")
-    }
-}
-
-pub fn safe_extension_downcast<T>(r: &RevType) -> Option<&T> where T: 'static{
-    let t = match r {
-            RevExtension(x) => x,
-            _ => return None,
-    };
-
-    t.as_any().downcast_ref::<T>()
-}
