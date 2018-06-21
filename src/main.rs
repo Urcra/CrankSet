@@ -273,6 +273,14 @@ fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
     Plus(Box::new(rhs), Box::new(lhs))
 }
 
+fn minus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Minus(Box::new(rhs), Box::new(lhs))
+}
+
+fn equal(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
+    Equal(Box::new(rhs), Box::new(lhs))
+}
+
 fn int(x: i64) -> RevExpr {
     Lit(RevType::Revi64(x))
 }
@@ -511,6 +519,14 @@ fn main() {
     rpu.load_proc("Infi".to_string(), Call("Infi".to_string()));
 
     rpu.load_proc("more".to_string(), Stmnts(Box::new([PlusEq(var("x"), plus(int(2), int(3))), PlusEq(var("x"), plus(int(2), int(3)))])));
+
+    let freefall = 
+        FromStmnt(equal(var("ts"), int(0)), 
+        Box::new(Stmnts(Box::new([
+            PlusEq(var("ts"), int(1)),
+            PlusEq(var("v"), int(10)),
+            MinusEq(var("h"), minus(var("v"), int(5)))]))),
+        equal(var("ts"), var("te")));
 
     rpu.create_var("x".to_string(), Revi64(2));
     rpu.call_proc(&"more".to_string());
