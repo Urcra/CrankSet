@@ -9,6 +9,8 @@ enum Reversible {
 */
 
 
+
+
 enum RevStmnt {
     PlusEq(RevExpr, RevExpr),
     MinusEq(RevExpr, RevExpr),
@@ -21,6 +23,7 @@ enum RevStmnt {
     Uncall(String),
     CallBack(Box<Fn(RevType) -> ()>),
 }
+
 
 
 enum RevExpr {
@@ -41,6 +44,7 @@ use std::fmt;
 
 trait RevExt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
+    fn clone(&self) -> Self where Self: Sized;
     fn add_reverse_rhs(&self, &RevType) -> RevType;
     fn add_reverse_lhs(&self, &RevType) -> RevType;
     fn sub_reverse_rhs(&self, &RevType) -> RevType;
@@ -66,6 +70,20 @@ enum RevType {
     RevItem(Box<RevType>),
     RevList(Box<[RevType]>),
     RevExtension(Box<RevExt>),
+}
+
+impl Clone for RevType {
+    fn clone(&self) -> RevType {
+        match self {
+            Empty => Empty,
+            Revi64(x) => Revi64(x.clone()),
+            Revf64(x) => Revf64(x.clone()),
+            Revbool(x) => Revbool(x.clone()),
+            RevItem(x) => RevItem(x.clone()),
+            RevList(x) => RevList(x.clone()),
+            RevExtension(x) => unimplemented!(),
+        }
+    }
 }
 
 
@@ -265,6 +283,183 @@ fn var(x: &str) -> RevExpr {
 
 
 use std::collections::HashMap;
+
+
+struct ProcHandler {
+    procs: HashMap<String, RevStmnt>,
+}
+
+impl ProcHandler {
+
+    fn new() -> ProcHandler {
+        ProcHandler {
+            procs: HashMap::new(),
+        }
+    }
+
+    fn get_proc(&self, p: &String) -> &RevStmnt {
+        self.procs.get(p).unwrap()
+    }
+}
+
+struct StoreHandler {
+    store: HashMap<String, RevType>,
+}
+
+impl StoreHandler {
+
+    fn new() -> StoreHandler {
+        StoreHandler {
+            store: HashMap::new(),
+        }
+    }
+
+    fn run_proc(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
+        self.run_statement(stmnt, prochandler)
+    }
+
+    fn run_statement(&mut self, stmnt: &RevStmnt, prochandler: &ProcHandler) {
+        match stmnt {
+            PlusEq(rhs, lhs) => self.plus_eq(rhs, lhs),
+            Call(s) => self.call_stmnt(s, prochandler),
+            Stmnts(ss) => self.many_stmnts(ss, prochandler),
+            _ => unreachable!(),
+        }
+    }
+
+    fn call_stmnt(&mut self, p: &String, prochandler: &ProcHandler) {
+        let new_procedure = prochandler.get_proc(p);
+        self.run_proc(new_procedure, prochandler);
+    }
+
+    fn many_stmnts(&mut self, ss_box: &Box<[RevStmnt]>, prochandler: &ProcHandler){
+        for s in ss_box.iter() {
+            self.run_statement(s, prochandler);
+        }
+    }
+
+     fn get_var(&self, var: &String) -> &RevType {
+        self.store.get(var).unwrap()
+    }
+
+    fn calc_expr(&self, expr: &RevExpr) -> RevType {
+        match expr {
+            Plus(expr1, expr2)  => self.plus(expr1, expr2),
+            Lit(lit)            => lit.clone(),
+            Var(var)            => self.get_var(var).clone(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn plus(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
+        let rhs_val = self.calc_expr(rhs);
+        let lhs_val = self.calc_expr(lhs);
+        RevType::rev_add(&rhs_val, &lhs_val)
+    }
+
+    fn plus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
+        let var = match rhs {
+            Var(s) => s,
+            _ => unreachable!(),
+        };
+        let res = self.plus(rhs, lhs);
+        *self.store.get_mut(var).unwrap() = res;
+    }
+
+
+    fn create_var(&mut self, vname: String, val: RevType) {
+        self.store.insert(vname, val);
+    }
+
+    fn get_store(&self) -> Vec<(&String, &RevType)>{
+        let mut v = Vec::new();
+        for (key, val) in self.store.iter() {
+            v.push((key, val));
+        }
+        v
+    }
+}
+
+struct RPU {
+    procs: HashMap<String, RevStmnt>,
+    store: HashMap<String, RevType>,
+
+    storehandler: StoreHandler,
+    prochandler: ProcHandler
+}
+
+impl RPU {
+
+    fn new() -> RPU {
+        RPU {
+            procs: HashMap::new(),
+            store: HashMap::new(),
+            storehandler: StoreHandler::new(),
+            prochandler: ProcHandler::new(),
+        }
+    }
+
+    fn call_proc(&mut self, p: &String) {
+    
+        let proc_to_run = self.prochandler.get_proc(p);
+        self.storehandler.run_proc(proc_to_run, &self.prochandler);
+    }
+    /*
+
+    fn get_proc<'a>(procs: &'a HashMap<String, RevStmnt>, p: &String) -> &'a RevStmnt{
+        procs.get(p).unwrap()
+    }
+
+
+    fn get_var(&self, var: &String) -> &RevType {
+        self.store.get(var).unwrap()
+    }
+
+    fn calc_expr(&self, expr: &RevExpr) -> RevType {
+        match expr {
+            Plus(expr1, expr2)  => self.plus(expr1, expr2),
+            Lit(lit)            => lit.clone(),
+            Var(var)            => self.get_var(var).clone(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn plus(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
+        let rhs_val = self.calc_expr(rhs);
+        let lhs_val = self.calc_expr(lhs);
+        RevType::rev_add(&rhs_val, &lhs_val)
+    }
+
+    fn plus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
+        let var = match rhs {
+            Var(s) => s,
+            _ => unreachable!(),
+        };
+        let res = self.plus(rhs, lhs);
+        *self.store.get_mut(var).unwrap() = res;
+    }
+
+
+    fn run_proc(&mut self, ss: &RevStmnt) {
+        unreachable!();
+    }
+    */
+    fn load_proc(&mut self, pname: String, ss: RevStmnt) {
+        self.prochandler.procs.insert(pname, ss);
+    }
+    
+
+    fn create_var(&mut self, vname: String, val: RevType) {
+        //self.store.insert(vname, val);
+        self.storehandler.store.insert(vname, val);
+    }
+
+    fn get_store(&self) -> Vec<(&String, &RevType)> {
+        self.storehandler.get_store()
+    }
+}
+
+
 use RevExpr::*;
 use RevStmnt::*;
 
@@ -303,7 +498,24 @@ fn main() {
     }
     //store.insert("x", res);
 
+    let mut rpu = RPU::new();
+    //rpu.call_proc(&"TestProc".to_string());
 
-    println!("Hello, world!, {:?}", res);
+    //rpu.create_var("x".to_string(), Revi64(1));
+    //rpu.plus_eq(&var("x"), &plus(int(2), int(3)));
+    //let res2 = rpu.plus(&var("x"), &int(4));
+    //println!("Hello, world!, {:?}", res2);
+
+    rpu.load_proc("Test".to_string(), PlusEq(var("x"), plus(int(2), int(3))));
+    rpu.load_proc("Test2".to_string(), Call("Test".to_string()));
+    rpu.load_proc("Infi".to_string(), Call("Infi".to_string()));
+
+    rpu.load_proc("more".to_string(), Stmnts(Box::new([PlusEq(var("x"), plus(int(2), int(3))), PlusEq(var("x"), plus(int(2), int(3)))])));
+
+    rpu.create_var("x".to_string(), Revi64(2));
+    rpu.call_proc(&"more".to_string());
+
+    let finalstore = rpu.get_store();
+    println!("Hello, world!, {:?}", finalstore);
 
 }
