@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Urcra <urcra@urcra.com>"]
 
 [dependencies]
+num-bigint = "0.2"

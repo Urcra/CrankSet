@@ -16,12 +16,13 @@ enum RevStmnt {
     MinusEq(RevExpr, RevExpr),
     MultEq(RevExpr, RevExpr),
     DivEq(RevExpr, RevExpr),
+    Swap(RevExpr, RevExpr),
     IfStmnt(RevExpr, Box<RevStmnt>, Box<RevStmnt>, RevExpr),
     FromStmnt(RevExpr, Box<RevStmnt>, RevExpr),
     Stmnts(Box<[RevStmnt]>),
     Call(String),
     Uncall(String),
-    CallBack(Box<Fn(RevType) -> ()>),
+    CallBack(Box<Fn(&RevType) -> ()>, RevExpr),
 }
 
 
@@ -339,10 +340,32 @@ impl StoreHandler {
         match stmnt {
             PlusEq(rhs, lhs) => self.plus_eq(rhs, lhs),
             MinusEq(rhs, lhs) => self.minus_eq(rhs, lhs),
+            Swap(rhs, lhs) => self.swap(rhs, lhs),
             Call(s) => self.call_stmnt(s, prochandler),
             Stmnts(ss) => self.many_stmnts(ss, prochandler),
             FromStmnt(precond, ss, postcond) => self.from_stmnt(precond, ss, postcond, prochandler),
+            IfStmnt(precond, ss1, ss2, postcond) => self.if_stmnt(precond, ss1, ss2, postcond, prochandler),
+            CallBack(func, expr) => self.callback_stmnt(func, expr),
             _ => unreachable!(),
+        }
+    }
+
+    fn callback_stmnt(&self, func: &Box<Fn(&RevType) -> ()>, expr: &RevExpr){
+        let res = self.calc_expr(expr);
+        func(&res);
+    }
+
+    fn if_stmnt(&mut self, precond: &RevExpr, ss1: &RevStmnt, ss2: &RevStmnt, postcond: &RevExpr, prochandler: &ProcHandler) {
+        let pre_res = self.calc_expr(precond);
+
+        if pre_res.is_true() {
+            self.run_statement(ss1, prochandler);
+            let post_res = self.calc_expr(postcond);
+            assert!(post_res.is_true());
+        } else {
+            self.run_statement(ss2, prochandler);
+            let post_res = self.calc_expr(postcond);
+            assert!(!post_res.is_true());
         }
     }
 
@@ -403,6 +426,23 @@ impl StoreHandler {
         RevType::rev_sub(&rhs_val, &lhs_val)
     }
 
+    fn swap(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
+        let rhs_s = match rhs {
+            Var(s) => s,
+            _ => unreachable!(),
+        };
+        let lhs_s = match lhs {
+            Var(s) => s,
+            _ => unreachable!(),
+        };
+
+        let rhs_v = self.get_var(rhs_s).clone();
+        let lhs_v = self.get_var(lhs_s).clone();
+
+        *self.store.get_mut(rhs_s).unwrap() = lhs_v;
+        *self.store.get_mut(lhs_s).unwrap() = rhs_v;
+    }
+
     fn plus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
         let var = match rhs {
             Var(s) => s,
@@ -459,46 +499,7 @@ impl RPU {
         let proc_to_run = self.prochandler.get_proc(p);
         self.storehandler.run_proc(proc_to_run, &self.prochandler);
     }
-    /*
 
-    fn get_proc<'a>(procs: &'a HashMap<String, RevStmnt>, p: &String) -> &'a RevStmnt{
-        procs.get(p).unwrap()
-    }
-
-
-    fn get_var(&self, var: &String) -> &RevType {
-        self.store.get(var).unwrap()
-    }
-
-    fn calc_expr(&self, expr: &RevExpr) -> RevType {
-        match expr {
-            Plus(expr1, expr2)  => self.plus(expr1, expr2),
-            Lit(lit)            => lit.clone(),
-            Var(var)            => self.get_var(var).clone(),
-            _ => unreachable!(),
-        }
-    }
-
-    fn plus(&self, rhs: &RevExpr, lhs: &RevExpr) -> RevType {
-        let rhs_val = self.calc_expr(rhs);
-        let lhs_val = self.calc_expr(lhs);
-        RevType::rev_add(&rhs_val, &lhs_val)
-    }
-
-    fn plus_eq(&mut self, rhs: &RevExpr, lhs: &RevExpr) {
-        let var = match rhs {
-            Var(s) => s,
-            _ => unreachable!(),
-        };
-        let res = self.plus(rhs, lhs);
-        *self.store.get_mut(var).unwrap() = res;
-    }
-
-
-    fn run_proc(&mut self, ss: &RevStmnt) {
-        unreachable!();
-    }
-    */
     fn load_proc(&mut self, pname: String, ss: RevStmnt) {
         self.prochandler.procs.insert(pname, ss);
     }
@@ -518,6 +519,12 @@ impl RPU {
 use RevExpr::*;
 use RevStmnt::*;
 
+/*
+fn callback_test(x: &RevType) {
+    println!("{:?}", x);
+}*/
+
+
 fn main() {
 
     let procedure = 
@@ -526,9 +533,13 @@ fn main() {
                     PlusEq(var("x"), int(15)),
                     PlusEq(var("y"), plus(plus(int(15), int(15)), int(20))),
                 ]));
+
     
     let mut store = HashMap::new();
     
+    let callback_test = |x: &RevType| {
+        println!("{:?}", x);
+    };
 
     let a = Revi64(5);
     let b = Revi64(10);
@@ -570,6 +581,7 @@ fn main() {
     let freefall = 
         FromStmnt(equal(var("ts"), int(0)), 
         Box::new(Stmnts(Box::new([
+            CallBack(Box::new(callback_test), var("ts")),
             PlusEq(var("ts"), int(1)),
             PlusEq(var("v"), int(10)),
             MinusEq(var("h"), minus(var("v"), int(5)))]))),
@@ -586,7 +598,22 @@ fn main() {
     rpu.create_var("te".to_string(), Revi64(3));
 
     rpu.call_proc(&"freefall".to_string());
+    
+
+    let fib = IfStmnt(equal(var("n"), int(0)),
+            Box::new(Stmnts(Box::new([PlusEq(var("x1"), int(1)), PlusEq(var("x2"), int(1))]))),
+            Box::new(Stmnts(Box::new([MinusEq(var("n"), int(1)), Call("fib".to_owned()), PlusEq(var("x1"), var("x2")), Swap(var("x1"), var("x2"))]))),
+            equal(var("x1"), var("x2")));
+    
+    rpu.load_proc("fib".to_string(), fib);
+    //rpu.create_var("n".to_string(), Revi64(4));
+    //rpu.create_var("x1".to_string(), Revi64(0));
+    //rpu.create_var("x2".to_string(), Revi64(0));
+
+    //rpu.call_proc(&"fib".to_string());
+
     let finalstore = rpu.get_store();
+
     println!("Hello, world!, {:?}", finalstore);
 
 }
