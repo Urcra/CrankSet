@@ -703,7 +703,7 @@ fn stmnts(stmnts: &[RevStmnt]) -> RevStmnt {
 
 #[macro_export]
 macro_rules! stmnts {
-    (First($a:expr), $( Item($x:expr) ),* , Last($c:expr)) => {
+    ($( $x:expr );* ) => {
         {
             Box::new(
             [
@@ -725,19 +725,65 @@ macro_rules! var {
 }
 
 
+#[macro_export]
+macro_rules! IF {
+    (($precond:expr) THEN{ $( $ifitem:expr );*}  ELSE{ $( $elseitem:expr );*} FI($postcond:expr)) => {
+        {
+            IfStmnt(
+            $precond,
+            Box::new(Stmnts(Box::new(
+            [
+            $(
+                $ifitem,
+            )*
+            ]))),
+            Box::new(Stmnts(Box::new(
+            [
+            $(
+                $elseitem,
+            )*
+            ]))),
+            $postcond
+            )
+        }
+    };
+}
+
 use RevExpr::*;
 use RevStmnt::*;
 
-
+mod crankset;
 
 fn main() {
 
-    let testitest = stmnts![First(1),Item(2),Last(3)];
+    //let mactest = IF![(5) THEN{ 1;2;3} ELSE{ 4;5;6} FI(5)];
+
+    //println!("{:?}", mactest);
+    /*
+    let mactest = IfStmnt(equal(var("n"), int(0)),
+            Box::new(Stmnts(Box::new([PlusEq(var("x1"), int(1)), PlusEq(var("x2"), int(1))]))),
+            Box::new(Stmnts(Box::new([MinusEq(var("n"), int(1)), Call("fib".to_owned()), PlusEq(var("x1"), var("x2")), Swap(var("x1"), var("x2"))]))),
+            equal(var("x1"), var("x2")));
+    */
+
+    let mactest = 
+        IF![(equal(var("n"), int(0)))
+        THEN{
+            PlusEq(var("x1"), int(1));
+            PlusEq(var("x2"), int(1))
+        }ELSE{
+            MinusEq(var("n"), int(1));
+            Call("fib".to_owned());
+            PlusEq(var("x1"), var("x2"));
+            Swap(var("x1"), var("x2"))
+        }FI(equal(var("x1"), var("x2")))];
+
+    let testitest = stmnts![1;2;3];
     println!("{:?}", testitest);
     let testitest2 = [1,2,3,];
 
     let chartest = var!(b);
-    println!("{:?}", chartest);
+    //println!("{:?}", chartest);
 
     let procedure = 
     
@@ -746,6 +792,11 @@ fn main() {
                     PlusEq(var("y"), plus(plus(int(15), int(15)), int(20))),
                 ]));
 
+
+    let procedure2 = stmnts![
+        PlusEq(var!(x), int(15));
+        PlusEq(var!(y), plus(plus(int(15), int(15)), int(20)))
+    ];
     
     let mut store = HashMap::new();
     
@@ -823,10 +874,24 @@ fn main() {
     //rpu.call_proc(&"addtox".to_string());
     //rpu.uncall_proc(&"addtox".to_string());
 
+    /*
     let fib = IfStmnt(equal(var("n"), int(0)),
             Box::new(Stmnts(Box::new([PlusEq(var("x1"), int(1)), PlusEq(var("x2"), int(1))]))),
             Box::new(Stmnts(Box::new([MinusEq(var("n"), int(1)), Call("fib".to_owned()), PlusEq(var("x1"), var("x2")), Swap(var("x1"), var("x2"))]))),
             equal(var("x1"), var("x2")));
+    */
+
+    let fib = 
+        IF![(equal(var!(n), int(0)))
+        THEN{
+            PlusEq(var!(x1), int(1));
+            PlusEq(var!(x2), int(1))
+        }ELSE{
+            MinusEq(var!(n), int(1));
+            Call("fib".to_owned());
+            PlusEq(var!(x1), var!(x2));
+            Swap(var!(x1), var!(x2))
+        }FI(equal(var!(x1), var!(x2)))];
     
     rpu.load_proc("fib".to_string(), fib);
     rpu.create_var("n".to_string(), Revi64(0));
