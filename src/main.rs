@@ -15,72 +15,84 @@ use std::fmt;
 
 use crankset::RPU;
 
-struct Testi {
-    tag: u32,
-}
+extern crate num_rational;
+extern crate num_bigint;
+use num_rational::BigRational;
+use num_bigint::BigInt;
+use num_bigint::ToBigInt;
 
 
-impl RevExt for Testi {
+impl RevExt for BigRational {
    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        println!("{:?}", self.tag);
-        unimplemented!()
+        self.fmt(f)
     }
     fn clone(&self) -> Self where Self: Sized {
-        unimplemented!()
+        std::clone::Clone::clone(self)
     }
-    fn add_reverse_rhs(&self, r: &RevType) -> RevType {
-        let b: &Testi = extension_downcast::<Testi>(r);
-
-        RevExtension(Box::new(Testi { tag: b.tag + self.tag}))
+    fn add_reverse_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        RevExtension(Box::new(self + lhs_ratio))
     }
-    fn add_reverse_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn add_reverse_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        RevExtension(Box::new(rhs_ratio + self))
     }
-    fn sub_reverse_rhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn sub_reverse_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        RevExtension(Box::new(self - lhs_ratio))
     }
-    fn sub_reverse_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn sub_reverse_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        RevExtension(Box::new(rhs_ratio - self))
     }
-    fn mult_reverse_rhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn mult_reverse_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        RevExtension(Box::new(self * lhs_ratio))
     }
-    fn mult_reverse_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn mult_reverse_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        RevExtension(Box::new(rhs_ratio * self))
     }
-    fn div_reverse_rhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn div_reverse_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        RevExtension(Box::new(self / lhs_ratio))
     }
-    fn div_reverse_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn div_reverse_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        RevExtension(Box::new(rhs_ratio / self))
     }
-    fn geq_rhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn geq_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        Revbool(self >= lhs_ratio)
     }
-    fn geq_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn geq_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        Revbool(rhs_ratio >= self)
     }
-    fn eq_rhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn eq_rhs(&self, lhs: &RevType) -> RevType {
+        let lhs_ratio: &BigRational = extension_downcast::<BigRational>(lhs);
+        Revbool(self == lhs_ratio)
     }
-    fn eq_lhs(&self, r: &RevType) -> RevType {
-        unimplemented!()
+    fn eq_lhs(&self, rhs: &RevType) -> RevType {
+        let rhs_ratio: &BigRational = extension_downcast::<BigRational>(rhs);
+        Revbool(rhs_ratio == self)
     }
     fn not(&self) -> RevType {
-        unimplemented!()
+        // Not a boolean type
+        unreachable!()
     }
     fn is_empty(&self) -> bool {
-        unimplemented!()
+        self.is_integer() && (self.to_integer() == 0_i32.to_bigint().unwrap())
     }
     fn is_true(&self) -> bool {
-        unimplemented!()
+        // Not a boolean type
+        unreachable!()
     }
     fn as_any(&self) -> &Any {
         self
     }
 
 }
-
 
 
 fn main() {
@@ -135,7 +147,7 @@ fn main() {
 
     //let test_2 = callback_test.clone();
 
-    let q: Box<RevExt> = Box::new(Testi {tag: 2});
+    //let q: Box<RevExt> = Box::new(Testi {tag: 2});
     
     let rev_int_1 = Revi64(15);
     let rev_int_2 = Revi64(30);

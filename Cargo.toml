@@ -1,7 +1,8 @@
 [package]
 name = "CrankSet"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Urcra <urcra@urcra.com>"]
 
 [dependencies]
 num-bigint = "0.2"
+num-rational = "0.2"
