@@ -208,6 +208,18 @@ impl StoreHandler {
         self.store.insert(vname, val);
     }
 
+    pub fn with_vals(&mut self, vars: &[(String, RevType)]) {
+        for (var, val) in vars.iter() {
+            self.create_var(var.clone(), val.clone());
+        }
+    }
+
+    pub fn with_vars(&mut self, vars: &[String]) {
+        for var in vars.iter() {
+            self.create_var(var.clone(), RevType::Empty);
+        }
+    }
+
     pub fn get_store(&self) -> Vec<(&String, &RevType)>{
         let mut v = Vec::new();
         for (key, val) in self.store.iter() {

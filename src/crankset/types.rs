@@ -23,7 +23,6 @@ pub trait RevExt {
     fn is_empty(&self) -> bool;
     fn is_true(&self) -> bool;
     fn as_any(&self) -> &Any;
-    fn testi(&self, Box<RevExt>) -> RevType;
 }
 
 
@@ -76,6 +75,7 @@ impl RevType {
                 match lhs {
                     Revi64(lhs_i) => Revi64(rhs_i + lhs_i),
                     RevExtension(lhs_ext) => lhs_ext.add_reverse_lhs(rhs),
+                    Empty                 => rhs.clone(),
                     _ => unreachable!(),
                 }
             },
@@ -83,10 +83,12 @@ impl RevType {
                 match lhs {
                     Revf64(lhs_f) => Revf64(rhs_f + lhs_f),
                     RevExtension(lhs_ext) => lhs_ext.add_reverse_lhs(rhs),
+                    Empty                 => rhs.clone(),
                     _ => unreachable!(),
                 }
             },
             RevExtension(rhs_ext) => rhs_ext.add_reverse_rhs(lhs),
+            Empty                 => lhs.clone(),
             _ => unreachable!(),
         }
     }
@@ -202,6 +204,7 @@ impl RevType {
                 }
             },
             RevExtension(rhs_ext) => rhs_ext.eq_rhs(lhs),
+            Empty => Revbool(RevType::is_empty(lhs)),
             _ => unreachable!(),
         }
     }
@@ -226,6 +229,7 @@ impl RevType {
             Revi64(var_i) => *var_i == 0,
             Revf64(var_f) => *var_f == 0.0,
             RevExtension(var_ext) => var_ext.is_empty(),
+            Empty         => true,
             _ => unreachable!(),
         }
     }
