@@ -2,6 +2,7 @@ use crankset::lang::RevExpr::*;
 use crankset::lang::RevExpr;
 use crankset::types::RevType::*;
 use crankset::types::RevType;
+use crankset::types::RevExt;
 
 pub fn plus(rhs: RevExpr, lhs: RevExpr) -> RevExpr {
     Plus(Box::new(rhs), Box::new(lhs))
@@ -25,12 +26,15 @@ pub fn var(x: &str) -> RevExpr {
 
 
 
-/*
-fn stmnts(stmnts: &[RevStmnt]) -> RevStmnt {
-    Stmnts(Box::new(*stmnts))
-}*/
 
-
+#[macro_export]
+macro_rules! ext {
+    ($a:expr ) => {
+        {
+            Lit(RevExtension(Box::new($a)))
+        }
+    };
+}
 
 #[macro_export]
 macro_rules! PLUSEQ {
